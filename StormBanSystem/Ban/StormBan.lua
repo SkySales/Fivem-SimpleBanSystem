@@ -40,6 +40,52 @@ function BanPlayer(src, reason)
     print('^2[STORMBAN] ^1Player Success Ban form the server^0')
 end
 
+function Bannable(src, reason)
+    local config = LoadResourceFile(GetCurrentResourceName(), "storm.json")
+    local cfg = json.decode(config)
+    local ids = ExtractIdentifiers(src);
+    local IP = ids.ip;
+    local Steam = ids.steam;
+    local License = ids.license;
+    local Xbl = ids.xbl;
+    local LiveID = ids.live;
+    local Dc_ID = ids.discord;
+    local banData = {};
+    banData['ID'] = tonumber(getNewBanID());
+    banData['reason'] = reason;
+    banData['license'] = "NONE SUPPLIED";
+    banData['steam'] = "NONE SUPPLIED";
+    banData['xbl'] = "NONE SUPPLIED";
+    banData['live'] = "NONE SUPPLIED";
+    banData['discord'] = "NONE SUPPLIED";
+    if IP ~= nil and IP ~= "nil" and IP ~= "" then 
+        banData['ip'] = tostring(IP);
+    end
+    if License ~= nil and License ~= "nil" and License ~= "" then 
+        banData['license'] = tostring(License);
+    end
+    if Steam ~= nil and Steam ~= "nil" and Steam ~= "" then 
+        banData['steam'] = tostring(Steam);
+    end
+    if Xbl ~= nil and Xbl ~= "nil" and Xbl ~= "" then 
+        banData['xbl'] = tostring(Xbl);
+    end
+    if LiveID ~= nil and LiveID ~= "nil" and LiveID ~= "" then 
+        banData['live'] = tostring(LiveID);
+    end
+    if Dc_ID ~= nil and Dc_ID ~= "nil" and Dc_ID ~= "" then 
+        banData['discord'] = tostring(Dc_ID);
+    end
+    cfg[tostring(GetPlayerName(src))] = banData;
+    SaveResourceFile(GetCurrentResourceName(), "storm.json", json.encode(cfg, { indent = true }), -1)
+    DropPlayer(src, reason);
+end
+
+RegisterNetEvent('TriggerBannable')
+AddEventHandler('TriggerBannable', function(src, reason)
+    Bannable(src, reason)
+end)
+
 function getNewBanID()
     local config = LoadResourceFile(GetCurrentResourceName(), "storm.json")
     local cfg = json.decode(config)
