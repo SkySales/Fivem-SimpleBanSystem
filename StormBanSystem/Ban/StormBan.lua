@@ -9,29 +9,46 @@ function BanPlayer(src, reason)
     local Xbl = ids.xbl;
     local LiveID = ids.live;
     local Dc_ID = ids.discord;
-    cfg[tostring(ip)] = reason;
-    cfg[tostring(License)] = reason;
+    local banData = {};
+    banData['ID'] = tonumber(getNewBanID());
+    banData['reason'] = reason;
+    banData['license'] = "NONE";
+    banData['steam'] = "NONE";
+    banData['xbl'] = "NONE";
+    banData['live'] = "NONE";
+    banData['discord'] = "NONE";
+    if IP ~= nil and IP ~= "nil" and IP ~= "" then 
+        banData['ip'] = tostring(IP);
+    end
+    if License ~= nil and License ~= "nil" and License ~= "" then 
+        banData['license'] = tostring(License);
+    end
     if Steam ~= nil and Steam ~= "nil" and Steam ~= "" then 
-        cfg[tostring(Steam)] = reason;
+        banData['steam'] = tostring(Steam);
     end
     if Xbl ~= nil and Xbl ~= "nil" and Xbl ~= "" then 
-        cfg[tostring(Xbl)] = reason;
+        banData['xbl'] = tostring(Xbl);
     end
     if LiveID ~= nil and LiveID ~= "nil" and LiveID ~= "" then 
-        cfg[tostring(LiveID)] = reason;
+        banData['live'] = tostring(LiveID);
     end
     if Dc_ID ~= nil and Dc_ID ~= "nil" and Dc_ID ~= "" then 
-        cfg[tostring(Dc_ID)] = reason;
+        banData['discord'] = tostring(Dc_ID);
     end
+    cfg[tostring(GetPlayerName(src))] = banData;
     SaveResourceFile(GetCurrentResourceName(), "storm.json", json.encode(cfg, { indent = true }), -1)
+    print('^2[STORMBAN] ^1Player Success Ban form the server^0')
 end
 
-function UnbanPlayer(ip)
+function getNewBanID()
     local config = LoadResourceFile(GetCurrentResourceName(), "storm.json")
     local cfg = json.decode(config)
-    cfg[tostring(ip)] = nil;
-    SaveResourceFile(GetCurrentResourceName(), "storm.json", json.encode(cfg, { indent = true }), -1)
-end 
+    local banID = 0;
+    for k, v in pairs(cfg) do 
+        banID = banID + 1;
+    end
+    return (banID + 1);
+end
 
 function GetBans()
     local config = LoadResourceFile(GetCurrentResourceName(), "storm.json")
@@ -69,9 +86,41 @@ Citizen.CreateThread(function()
     end
 end)
 
+function isBanned(src)
+    local config = LoadResourceFile(GetCurrentResourceName(), "storm.json")
+    local cfg = json.decode(config)
+    local ids = ExtractIdentifiers(src);
+    local playerIP = ids.ip;
+    local playerSteam = ids.steam;
+    local playerLicense = ids.license;
+    local playerXbl = ids.xbl;
+    local playerLive = ids.live;
+    local playerDisc = ids.discord;
+    for k, v in pairs(cfg) do 
+        local reason = v['reason']
+        local id = v['ID']
+        local ip = v['ip']
+        local license = v['license']
+        local steam = v['steam']
+        local xbl = v['xbl']
+        local live = v['live']
+        local discord = v['discord']
+        if tostring(ip) == tostring(playerIP) then return { ['banID'] = id, ['reason'] = reason } end;
+        if tostring(license) == tostring(playerLicense) then return { ['banID'] = id, ['reason'] = reason } end;
+        if tostring(steam) == tostring(playerSteam) then return { ['banID'] = id, ['reason'] = reason } end;
+        if tostring(xbl) == tostring(playerXbl) then return { ['banID'] = id, ['reason'] = reason } end;
+        if tostring(live) == tostring(playerLive) then return { ['banID'] = id, ['reason'] = reason } end;
+        if tostring(discord) == tostring(playerDisc) then return { ['banID'] = id, ['reason'] = reason } end;
+    end
+    return false;
+end
+
 function OnPlayerConnecting(name, setKickReason, deferrals)
     deferrals.defer();
+    print("[StormBan] Checking their Ban Data");
     local src = source;
+    local banned = false;
+    local ban = isBanned(src);
     local ids = ExtractIdentifiers(src);
     local IP = ids.ip;
     local SteamID = ids.steam;
@@ -82,19 +131,17 @@ function OnPlayerConnecting(name, setKickReason, deferrals)
     local Xbl = ids.xbl;
     local LiveID = ids.live;
     local Dc_ID = ids.discord;
-    local bans = GetBans();
-    local banned = false;
-    if (bans[tostring(IP)] ~= nil) or (bans[tostring(Steam)] ~= nil) or 
-    (bans[tostring(License)] ~= nil) or (bans[tostring(Xbl)] ~= nil) or 
-    (bans[tostring(Xbl)] ~= nil) or (bans[tostring(LiveID)] ~= nil) or (bans[tostring(Dc_ID)] ~= nil) then 
-        local reason = "Unknown";
-        for id, v in pairs(ids) do 
-            if bans[tostring(v)] ~= nil then 
-                reason = bans[tostring(v)];
-            end
-        end
-        print("^2StormBan > A banned player named " .. GetPlayerName(src) .. " tried to join your server. Reason: "..reason.."^0");
-        deferrals.done("StormBan > Reason: "..reason.."");
+    Citizen.Wait(100);
+    if ban then 
+        local reason = ban['reason'];
+        local printMessage = nil;
+        if string.find(reason, "[StormBan]") then 
+            printMessage = "" 
+        else 
+            printMessage = "[StormBan] " 
+        end 
+        print("[BANNED PLAYER] Player " .. GetPlayerName(src) .. " tried to join, but was banned for: " .. reason);
+        deferrals.done(printMessage .. "(BAN ID: " .. ban['banID'] .. ") " .. reason);
         local title = "StormBan > This player try to join your server!"
         local loginfo = {
             ["color"] = "77777", 
@@ -131,7 +178,10 @@ RegisterCommand("stormban", function(source, args, raw)
         local id = args[1]
         if ExtractIdentifiers(args[1]) ~= nil then 
             local ids = ExtractIdentifiers(id);
-            local steam = ids.steam;
+            local SteamID = ids.steam;
+            local Steam = ids.steam:gsub("steam:", "");
+            local steamDec = tostring(tonumber(Steam,16));
+            Steam = "https://steamcommunity.com/profiles/" .. steamDec;
             local gameLicense = ids.license;
             local discord = ids.discord;
             local reason = table.concat(args, ' '):gsub(args[1] .. " ", "");
@@ -139,7 +189,8 @@ RegisterCommand("stormban", function(source, args, raw)
             DropPlayer(id, "StormBan: Banned by Admin " .. GetPlayerName(src) .. " for reason: " .. reason);
 			sendToDisc("Player Banned fron the Server [Storm Ban System]", 
                 'Reason: **' .. reason .. '**\n' ..
-                'Steam: **' .. steam .. '**\n' ..
+                'SteamURL: **' .. Steam .. '**\n' ..
+                'SteamID: **' .. SteamID .. '**\n' ..
                 'License: **' .. gameLicense .. '**\n' ..
                 'Discord: **<@' .. discord:gsub('discord:', '') .. '>**\n' .. 
                 'Discord ID: **' .. discord:gsub('discord:', '') .. '**\n');
@@ -152,29 +203,7 @@ RegisterCommand("stormban", function(source, args, raw)
     end
 end)
 
-AddEventHandler("playerConnecting", OnPlayerConnecting)
-
-RegisterNetEvent("StormBanSys:PlayerBannable")
-AddEventHandler("StormBanSys:PlayerBannable", function(type, reason)
-	if not IsPlayerAceAllowed(source, "Storm.Access") then 
-		local id = source;
-		local ids = ExtractIdentifiers(id);
-		local steam = ids.steam:gsub("steam:", "");
-		local steamDec = tostring(tonumber(steam,16));
-		steam = "https://steamcommunity.com/profiles/" .. steamDec;
-		local License = ids.license;
-		local discord = ids.discord;
-		BanPlayer(id, reason);
-		
-		sendToDisc("StormBan (" .. type .. ") | [" .. tostring(id) .. "] " .. GetPlayerName(id) .. "", 
-		'Steam: **' .. steam .. '**\n' ..
-		'License: **' .. License .. '**\n' ..
-		'Discord: **<@' .. discord:gsub('discord:', '') .. '>**\n' ..
-		'Discord ID: **' .. discord:gsub('discord:', '') .. '**\n');
-		
-		DropPlayer(id, reason)
-	end
-end)   
+AddEventHandler("playerConnecting", OnPlayerConnecting) 
 
 function sendToDisc(title, message)
     local embed = {}
